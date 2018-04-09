@@ -35,8 +35,7 @@ public:
 	                     const std::string &i_password ) = 0;
 	virtual bool isUnlocked() const = 0;
 
-	virtual void decryptString( const std::string &i_input,
-	                            std::string &o_output,
+	virtual std::string decryptString( const std::string &i_input,
 	                            int i_id,
 	                            int i_gen ) = 0;
 
@@ -47,7 +46,7 @@ public:
 /*!
 Interface for an object that can decrypt
 */
-class Crypter : public Filter
+class Crypter : public InputFilter
 {
 protected:
 	Crypter() = default;

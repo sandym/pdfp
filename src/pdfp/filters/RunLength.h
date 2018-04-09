@@ -14,7 +14,7 @@
 
 namespace pdfp {
 
-class RunLengthDecode : public BufferedFilter
+class RunLengthDecode : public BufferedInputFilter
 {
 public:
 	RunLengthDecode() = default;

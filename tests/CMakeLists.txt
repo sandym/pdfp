@@ -4,18 +4,14 @@ project( pdfp_tests )
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_subdirectory( .. pdfp )
-
 add_executable( pdfp_tests main.cpp
 						dumpers/pdfp_dumper.h
 						dumpers/dumper.h
 						dumpers/dumper_utils.h )
 target_include_directories( pdfp_tests PRIVATE dumpers )
 
+add_subdirectory( .. pdfp )
 target_link_libraries( pdfp_tests pdfp )
-
-find_package( Threads )
-target_link_libraries( pdfp_tests ${CMAKE_THREAD_LIBS_INIT} )
 
 file( GLOB dumpers dumpers/* )
 foreach( dumper ${dumpers} )

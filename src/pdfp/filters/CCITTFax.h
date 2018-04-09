@@ -15,7 +15,7 @@
 
 namespace pdfp {
 
-class CCITTFaxDecode : public BufferedFilter
+class CCITTFaxDecode : public BufferedInputFilter
 {
 public:
 	CCITTFaxDecode( int i_K,
@@ -56,13 +56,13 @@ private:
 
 	// Filter parameters
 	int _K;
-	bool _EndOfLine;
+	[[maybe_unused]] bool _EndOfLine;
 	bool _EncodedByteAlign;
 	int _Columns;
 	int _Rows;
-	bool _EndOfBlock;
+	[[maybe_unused]] bool _EndOfBlock;
 	bool _BlackIs1;
-	int _DamagedRowsBeforeError;
+	[[maybe_unused]] int _DamagedRowsBeforeError;
 
 	//	row reading
 	std::vector<uint8_t> _currentRow;

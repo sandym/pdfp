@@ -12,25 +12,25 @@
 
 namespace pdfp {
 
-void Filter::setNext( std::unique_ptr<ReadSource> i_next )
+void InputFilter::setNext( std::unique_ptr<InputSource> i_next )
 {
 	_next = std::move( i_next );
 }
 
-int Filter::getByteNext()
+int InputFilter::getByteNext()
 {
 	uint8_t b;
 	auto r = _next->read( {&b, 1} );
 	return r != 1 ? EOF : b;
 }
 
-void BufferedFilter::rewindNext()
+void BufferedInputFilter::rewindNext()
 {
-	Filter::rewindNext();
+	InputFilter::rewindNext();
 	_bufferSize = _bufferPos = 0;
 }
 
-std::streamoff BufferedFilter::readNext( su::array_view<uint8_t> o_buffer )
+std::streamoff BufferedInputFilter::readNext( su::array_view<uint8_t> o_buffer )
 {
 	size_t p = 0;
 	// use the buffer
@@ -45,19 +45,19 @@ std::streamoff BufferedFilter::readNext( su::array_view<uint8_t> o_buffer )
 	if ( p < o_buffer.size() )
 	{
 		auto len =
-		    Filter::readNext( o_buffer.subview( p, o_buffer.size() - p ) );
+		    InputFilter::readNext( o_buffer.subview( p, o_buffer.size() - p ) );
 		if ( len > 0 )
 			p += len;
 	}
 	return p;
 }
 
-int BufferedFilter::getByteNext()
+int BufferedInputFilter::getByteNext()
 {
 	if ( _bufferPos == _bufferSize )
 	{
 		_bufferSize = _bufferPos = 0;
-		auto r = Filter::readNext( {_buffer, 4096} );
+		auto r = InputFilter::readNext( {_buffer, 4096} );
 		if ( r <= 0 )
 			return EOF;
 		_bufferSize = r;

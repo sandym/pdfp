@@ -521,11 +521,7 @@ std::string Document::decrypt( const std::string &i_input,
                                    int i_gen ) const
 {
 	if ( i_id != 0 and _securityHandler.get() != nullptr )
-	{
-		std::string o;
-		_securityHandler->decryptString( i_input, o, i_id, i_gen );
-		return o;
-	}
+		return _securityHandler->decryptString( i_input, i_id, i_gen );
 	return i_input;
 }
 

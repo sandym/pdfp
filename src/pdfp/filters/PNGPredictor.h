@@ -14,7 +14,7 @@
 
 namespace pdfp {
 
-class PNGPredictor : public Filter
+class PNGPredictor : public InputFilter
 {
 public:
 	PNGPredictor( int i_width, int i_bitsPerComp, int i_nbOfComp );

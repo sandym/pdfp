@@ -14,7 +14,7 @@
 
 namespace pdfp {
 
-class ASCIIHexDecode : public BufferedFilter
+class ASCIIHexDecode : public BufferedInputFilter
 {
 public:
 	ASCIIHexDecode() = default;

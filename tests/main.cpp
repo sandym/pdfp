@@ -7,6 +7,7 @@
 #include "su/files/filepath.h"
 #include "su/strings/str_ext.h"
 #include <array>
+#include <stack>
 #include <unordered_map>
 
 #include "pdfp_dumper.h"
@@ -28,19 +29,37 @@
 
 #include <malloc/malloc.h>
 
-std::string g_process;
+//! name of current process
+std::string g_argv0;
 
 int usage()
 {
+	std::cout << "pdf_tests run_tests [driver list] [file or folder path]\n";
+	std::cout << "or\n";
+	std::cout << "pdf_tests dump [driver] [file path] {-o output_file}\n\n";
+	std::cout << "supported drivers:\n";
+	std::cout << "  pdfp\n";
+#ifdef PDFP_WANT_QUARTZ
+	std::cout << "  quartz\n";
+#endif
+#ifdef PDFP_WANT_POPPLER
+	std::cout << "  poppler\n";
+#endif
+#ifdef PDFP_WANT_APDFL
+	std::cout << "  apdfl\n";
+#endif
+#ifdef PDFP_WANT_OPENPDF
+	std::cout << "  openpdf\n";
+#endif
 	return -1;
 }
 
-uint64_t getMem()
+uint64_t getPeakMemUsed()
 {
 	auto zone = malloc_default_zone();
 	malloc_statistics_t stats{};
 	zone->introspect->statistics( zone, &stats );
-	return stats.max_size_in_use / (1024*1024);
+	return stats.max_size_in_use / 1024;
 }
 
 int dump( const std::string_view &driver,
@@ -104,6 +123,7 @@ int dump( const std::string_view &driver,
 				dumpDocument( doc.get(), *output_stream );
 			}
 #endif
+			// some tests driver
 			else if ( driver == "abort" )
 			{
 				abort();
@@ -128,20 +148,29 @@ int dump( const std::string_view &driver,
 	             std::chrono::high_resolution_clock::now() - t )
 	             .count();
 	std::cout << "time: " << e << std::endl;
-	std::cout << "mem: " << getMem() << std::endl;
+	std::cout << "mem: " << getPeakMemUsed() << std::endl;
 	return ret;
 }
 
-std::vector<su::filepath> getAll( const su::filepath &input )
+std::vector<su::filepath> getAllPDFs( const su::filepath &input )
 {
 	std::vector<su::filepath> result;
 	if ( input.isFolder() )
 	{
-		auto all = input.folderContent();
-		for ( auto &it : all )
+		std::stack<su::filepath> folders;
+		folders.push( input );
+		while ( not folders.empty() )
 		{
-			if ( su::tolower( it.extension() ) == "pdf" )
-				result.push_back( it );
+			auto current = folders.top();
+			folders.pop();
+			auto all = current.folderContent();
+			for ( auto &it : all )
+			{
+				if ( su::tolower( it.extension() ) == "pdf" )
+					result.push_back( it );
+				else if ( it.isFolder() )
+					folders.push( it );
+			}
 		}
 		std::sort( result.begin(),
 		           result.end(),
@@ -156,52 +185,133 @@ std::vector<su::filepath> getAll( const su::filepath &input )
 
 struct DriverStats
 {
-	int nbOfCrash{0};
-	int nbOfFail{0};
+	int nbOfCrashes{0};
+	int nbOfFails{0};
+};
+struct FileDriverStats
+{
+	bool crashed{ false };
+	bool cannotParse{ false };
+	bool sameAsPDFP{ false };
+	uint64_t t{ 0 };
+	uint64_t memused{ 0 };
+
+	FileDriverStats() = default;
+	FileDriverStats( const su::Json &i_json );
+	su::Json to_json() const;
 };
 struct FileStats
 {
-	int nbOfTimeTested{0};
-	int nbOfTimeCrashedPDFP{0};
-	int nbOfTimeAgreedWithAll{0};
-	bool lastTestWasAllGood{false};
-	bool lastTestWasOnlySlow{false};
+	int numberOfTimeTested{0};
+	int numberOfTimeAgreedWithAll{0};
 
-	std::string checksum;
+	std::string fileChecksum;
+	std::unordered_map<std::string,FileDriverStats> driverStats;
 
-	std::unordered_set<std::string> driversThatCannotParseThis;
-
-	bool canBeParseWith( const std::string &driver ) const
-	{
-		return driversThatCannotParseThis.find( driver ) ==
-		       driversThatCannotParseThis.end();
-	}
+	bool canBeParseWith( const std::string &driver ) const;
+	bool lastTestWasAllGood( const std::vector<std::string> &drivers ) const;
+	bool lastTestWasOnlySlow( const std::vector<std::string> &drivers ) const;
 
 	FileStats() = default;
 	FileStats( const su::Json &i_json );
 	su::Json to_json() const;
 };
+
+FileDriverStats::FileDriverStats( const su::Json &i_json )
+{
+	crashed = i_json["crashed"].bool_value();
+	cannotParse = i_json["cannotParse"].bool_value();
+	sameAsPDFP = i_json["sameAsPDFP"].bool_value();
+	t = i_json["t"].int64_value();
+	memused = i_json["memused"].int64_value();
+
+}
+su::Json FileDriverStats::to_json() const
+{
+	su::Json::object json;
+	json["crashed"] = crashed;
+	json["cannotParse"] = cannotParse;
+	json["sameAsPDFP"] = sameAsPDFP;
+	json["t"] = t;
+	json["memused"] = memused;
+	return json;
+}
 FileStats::FileStats( const su::Json &i_json )
 {
-	nbOfTimeTested = i_json["nbOfTimeTested"].int_value();
-	nbOfTimeCrashedPDFP = i_json["nbOfTimeCrashedPDFP"].int_value();
-	nbOfTimeAgreedWithAll = i_json["nbOfTimeAgreedWithAll"].int_value();
-	lastTestWasAllGood = i_json["lastTestWasAllGood"].bool_value();
-	lastTestWasOnlySlow = i_json["lastTestWasOnlySlow"].bool_value();
-	for ( auto &it : i_json["driversThatCannotParseThis"].array_items() )
-		driversThatCannotParseThis.insert( it.string_value() );
-	checksum = i_json["checksum"].string_value();
+	numberOfTimeTested = i_json["numberOfTimeTested"].int_value();
+	numberOfTimeAgreedWithAll = i_json["numberOfTimeAgreedWithAll"].int_value();
+	for ( auto &it : i_json["driverStats"].object_items() )
+		driverStats[it.first] = FileDriverStats( it.second );
+	fileChecksum = i_json["fileChecksum"].string_value();
 }
 su::Json FileStats::to_json() const
 {
-	return {{{"nbOfTimeTested", nbOfTimeTested},
-	         {"nbOfTimeCrashedPDFP", nbOfTimeCrashedPDFP},
-	         {"nbOfTimeAgreedWithAll", nbOfTimeAgreedWithAll},
-	         {"lastTestWasAllGood", lastTestWasAllGood},
-	         {"lastTestWasOnlySlow", lastTestWasOnlySlow},
-	         {"driversThatCannotParseThis", driversThatCannotParseThis},
-	         {"checksum", checksum}}};
+	return {{{"numberOfTimeTested", numberOfTimeTested},
+	         {"numberOfTimeAgreedWithAll", numberOfTimeAgreedWithAll},
+	         {"fileChecksum", fileChecksum},
+	         {"driverStats", driverStats}}};
 }
+bool FileStats::canBeParseWith( const std::string &driver ) const
+{
+	auto it = driverStats.find( driver );
+	if ( it != driverStats.end() )
+		return not it->second.cannotParse;
+	return true;
+}
+bool FileStats::lastTestWasAllGood( const std::vector<std::string> &drivers ) const
+{
+	auto pdfp = driverStats.find( "pdfp" );
+	if ( pdfp == driverStats.end() )
+		return false;
+	
+	// if any crashed or any was faster
+	// or any used less mem or any disagree
+	for ( auto &it : driverStats )
+	{
+		if ( std::find( drivers.begin(), drivers.end(), it.first ) == drivers.end() )
+			continue;
+		
+		if ( it.second.cannotParse )
+			continue;
+		if ( it.second.crashed )
+			return false;
+		if ( it.first != "pdfp" )
+		{
+			if ( not it.second.sameAsPDFP )
+				return false;
+			if ( it.second.t < pdfp->second.t )
+				return false;
+			if ( it.second.memused < pdfp->second.memused )
+				return false;
+		}
+	}
+	return true;
+}
+bool FileStats::lastTestWasOnlySlow( const std::vector<std::string> &drivers ) const
+{
+	auto pdfp = driverStats.find( "pdfp" );
+	if ( pdfp == driverStats.end() )
+		return false;
+	
+	// if any crashed or any disagree
+	for ( auto &it : driverStats )
+	{
+		if ( std::find( drivers.begin(), drivers.end(), it.first ) == drivers.end() )
+			continue;
+
+		if ( it.second.cannotParse )
+			continue;
+		if ( it.second.crashed )
+			return false;
+		if ( it.first != "pdfp" )
+		{
+			if ( not it.second.sameAsPDFP )
+				return false;
+		}
+	}
+	return true;
+}
+
 void saveFileStats( const su::filepath &i_pdf, const FileStats &stats )
 {
 	auto jsonFile = i_pdf;
@@ -227,7 +337,7 @@ FileStats loadFileStats( const su::filepath &i_pdf )
 		if ( err.empty() )
 		{
 			FileStats stats{json};
-			if ( not stats.checksum.empty() )
+			if ( not stats.fileChecksum.empty() )
 				return stats;
 		}
 	}
@@ -261,8 +371,8 @@ FileStats loadFileStats( const su::filepath &i_pdf )
 		{
 			int hi = ( md[i] & 0xF0 ) >> 4;
 			int lo = ( md[i] & 0x0F );
-			stats.checksum.push_back( hi < 10 ? hi + '0' : 'A' + hi - 10 );
-			stats.checksum.push_back( lo < 10 ? lo + '0' : 'A' + lo - 10 );
+			stats.fileChecksum.push_back( hi < 10 ? hi + '0' : 'A' + hi - 10 );
+			stats.fileChecksum.push_back( lo < 10 ? lo + '0' : 'A' + lo - 10 );
 		}
 		pdfstr.close();
 	}
@@ -307,6 +417,10 @@ TestResult test_driver( const std::string &driver, const su::filepath &pdfFile )
 	int err = pipe( child2ParentPipe );
 	assert( err == 0 );
 
+//	std::cout << g_argv0 <<
+//				" dump " << driver << " \"" <<
+//				pdfFile.path() << "\" -o " << result.output.path() << "\n";
+
 	// fork
 	auto pid = fork();
 	assert( pid >= 0 );
@@ -325,8 +439,8 @@ TestResult test_driver( const std::string &driver, const su::filepath &pdfFile )
 		}
 
 		// exec
-		execl( g_process.c_str(),
-		       g_process.c_str(),
+		execl( g_argv0.c_str(),
+		       g_argv0.c_str(),
 		       "dump",
 		       driver.c_str(),
 		       pdfFile.path().c_str(),
@@ -356,16 +470,16 @@ TestResult test_driver( const std::string &driver, const su::filepath &pdfFile )
 		if ( result.exit == 0 )
 		{
 			// get the time and mem
-			auto lines = su::split_view<char>( output, '\n' );
+			auto lines = su::split( output, '\n' );
 			if ( lines.size() >= 2 )
 			{
 				if ( su::starts_with( lines[lines.size()-2], "time: " ) )
 				{
-					result.t = std::stoull( std::string(lines[lines.size()-2].substr( 6 )) );
+					result.t = std::stoull( lines[lines.size()-2].substr( 6 ) );
 				}
 				if ( su::starts_with( lines[lines.size()-1], "mem: " ) )
 				{
-					result.m = std::stoull( std::string(lines[lines.size()-1].substr( 5 )) );
+					result.m = std::stoull( lines[lines.size()-1].substr( 5 ) );
 				}
 			}
 		}
@@ -530,7 +644,7 @@ void run_tests( const su::filepath &input,
                 int skip )
 {
 	// 1- get all pdf files
-	auto allFiles = getAll( input );
+	auto allFiles = getAllPDFs( input );
 
 	std::unordered_map<std::string, DriverStats> driverStats;
 	for ( auto &it : drivers )
@@ -595,9 +709,9 @@ td.error { background-color: #FF9999; }
 	for ( auto &pdfFile : allFiles )
 	{
 		auto fileStats = loadFileStats( pdfFile );
-		if ( skip > 0 and fileStats.lastTestWasAllGood )
+		if ( skip > 0 and fileStats.lastTestWasAllGood( drivers ) )
 			continue;
-		if ( skip > 1 and fileStats.lastTestWasOnlySlow )
+		if ( skip > 1 and fileStats.lastTestWasOnlySlow( drivers ) )
 			continue;
 		
 		if ( (index%25) == 0 )
@@ -618,14 +732,14 @@ td.error { background-color: #FF9999; }
 		ostr << "<td>" << pdfFile.file_size() << "</td>";
 
 		// name
-		if ( fileStats.nbOfTimeTested == 0 )
+		if ( fileStats.numberOfTimeTested == 0 )
 		{
 			// new file
 			ostr << R"(<td><font color="#FF4F0A">)" << pdfFile.stem()
 			     << "</font></td>";
 		}
-		else if ( fileStats.nbOfTimeTested > 100 and
-		          fileStats.nbOfTimeAgreedWithAll > 100 )
+		else if ( fileStats.numberOfTimeTested > 100 and
+		          fileStats.numberOfTimeAgreedWithAll > 100 )
 		{
 			// stable file
 			ostr << R"(<td><font color="#1FB40A">)" << pdfFile.stem()
@@ -640,6 +754,7 @@ td.error { background-color: #FF9999; }
 		std::unordered_map<std::string, TestResult> testResults;
 		for ( auto &it : drivers )
 		{
+			std::cout << "    " << it << std::endl;
 			if ( fileStats.canBeParseWith( it ) )
 				testResults[it] = test_driver( it, pdfFile );
 			else
@@ -649,7 +764,7 @@ td.error { background-color: #FF9999; }
 				testResults[it] = tr;
 			}
 		}
-		++fileStats.nbOfTimeTested;
+		++fileStats.numberOfTimeTested;
 
 		// diffs
 		auto &pdfpr = testResults["pdfp"];
@@ -668,29 +783,33 @@ td.error { background-color: #FF9999; }
 		auto referenceMem = pdfpr.exit == 0 ? pdfpr.m : 0;
 
 		// output
-		fileStats.lastTestWasOnlySlow = false;
 		int nbOfGoodResult = 0;
+		int nbOfUnableToParse = 0;
 		for ( auto &it : drivers )
 		{
 			auto &ds = driverStats[it];
 			auto &r = testResults[it];
 
+			fileStats.driverStats[it].sameAsPDFP = r.diff.empty();
+			//fileStats.driverStats[it].cannotParse = r.exit != 0;
+			fileStats.driverStats[it].crashed = r.crash;
+			fileStats.driverStats[it].t = r.t;
+			fileStats.driverStats[it].memused = r.m;
+
 			if ( r.unableToParse )
 			{
 				ostr << cell( "----" );
-				++nbOfGoodResult;
+				++nbOfUnableToParse;
 			}
 			else if ( r.crash )
 			{
 				ostr << cell( "Crash", true, "#F00" );
-				++ds.nbOfCrash;
-				if ( it == "pdfp" )
-					++fileStats.nbOfTimeCrashedPDFP;
+				++ds.nbOfCrashes;
 			}
 			else if ( r.exit != 0 )
 			{
 				ostr << cell( "Invalid", true );
-				++ds.nbOfFail;
+				++ds.nbOfFails;
 			}
 			else if ( not r.diff.empty() )
 			{
@@ -700,7 +819,6 @@ td.error { background-color: #FF9999; }
 			{
 				ostr << cell(
 				    "OK", false, "#00C", diffPerf( referenceTime, r.t, referenceMem, r.m ) );
-				fileStats.lastTestWasOnlySlow = true;
 			}
 			else
 			{
@@ -710,12 +828,7 @@ td.error { background-color: #FF9999; }
 		}
 
 		if ( nbOfGoodResult == drivers.size() )
-		{
-			++fileStats.nbOfTimeAgreedWithAll;
-			fileStats.lastTestWasAllGood = true;
-		}
-		else
-			fileStats.lastTestWasAllGood = false;
+			++fileStats.numberOfTimeAgreedWithAll;
 
 		// update filestats
 		saveFileStats( pdfFile, fileStats );
@@ -725,6 +838,22 @@ td.error { background-color: #FF9999; }
 	ostr << "</tbody></table>\n<br/><br/>\n";
 
 	// driver stats
+	ostr << "<table><tbody>\n";
+	ostr << R"(<tr class="headerRow">)";
+	ostr << "<td></td>";
+	for ( auto &driver : driverStats )
+		ostr << "<td>" << driver.first << "</td>";
+	ostr << "</tr>\n";
+	ostr << "<tr>";
+	ostr << "<td>crashes</td>";
+	for ( auto &driver : driverStats )
+		ostr << "<td>" << driver.second.nbOfCrashes << "</td>";
+	ostr << "</tr>\n";
+	ostr << "<td>fails</td>";
+	for ( auto &driver : driverStats )
+		ostr << "<td>" << driver.second.nbOfFails << "</td>";
+	ostr << "</tr>\n";
+	ostr << "</tbody></table>\n";
 
 	ostr << "</body></html>\n";
 }
@@ -759,9 +888,11 @@ int main( int argc, char *const argv[] )
 				++skip;
 			else if ( std::find( drivers.begin(), drivers.end(), n ) ==
 			          drivers.end() )
+			{
 				drivers.push_back( n );
+			}
 		}
-		g_process = argv[0];
+		g_argv0 = argv[0];
 		run_tests( su::filepath( input ), drivers, skip );
 	}
 	else

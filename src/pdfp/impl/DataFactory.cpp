@@ -26,7 +26,7 @@
 
 namespace pdfp {
 
-class DocSource : public ReadSource
+class DocSource : public InputSource
 {
 public:
 	DocSource( const Document *i_doc,
@@ -74,7 +74,7 @@ std::streamoff DocSource::read( su::array_view<uint8_t> o_buffer )
 
 // MARK: -
 
-class BufferSource : public ReadSource
+class BufferSource : public InputSource
 {
 public:
 	BufferSource( const char *i_ptr, size_t i_len );
@@ -163,10 +163,10 @@ Object getParamStream(
 class DataStream : public AbstractDataStream
 {
 public:
-	DataStream( std::unique_ptr<ReadSource> i_input );
+	DataStream( std::unique_ptr<InputSource> i_input );
 	virtual ~DataStream() = default;
 
-	void pushFilter( std::unique_ptr<Filter> i_filter );
+	void pushFilter( std::unique_ptr<InputFilter> i_filter );
 	bool pushFilter( const std::string &i_name,
 	                 const Object &i_decodeParams );
 	void pushPredictor( const Object &i_decodeParams );
@@ -177,7 +177,7 @@ public:
 private:
 	data_format_t _format;
 
-	std::unique_ptr<ReadSource> _input;
+	std::unique_ptr<InputSource> _input;
 
 	template<typename T, int NC>
 	bool choose_predictor_format( size_t width, int bpp, int c );
@@ -187,7 +187,7 @@ private:
 	DataStream &operator=( const DataStream & ) = delete;
 };
 
-DataStream::DataStream( std::unique_ptr<ReadSource> i_input ) :
+DataStream::DataStream( std::unique_ptr<InputSource> i_input ) :
     _format( data_format_t::kRaw ),
     _input( std::move( i_input ) )
 {
@@ -203,7 +203,7 @@ data_format_t DataStream::format() const
 	return _format;
 }
 
-void DataStream::pushFilter( std::unique_ptr<Filter> i_filter )
+void DataStream::pushFilter( std::unique_ptr<InputFilter> i_filter )
 {
 	i_filter->setNext( std::move( _input ) );
 	_input = std::move( i_filter );
@@ -344,7 +344,7 @@ void DataStream::pushPredictor( const Object &i_decodeParams )
 
 // MARK: -
 
-class DataStreamLimiter : public Filter
+class DataStreamLimiter : public InputFilter
 {
 public:
 	DataStreamLimiter( size_t i_limit );

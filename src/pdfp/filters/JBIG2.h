@@ -15,7 +15,7 @@ namespace pdfp {
 
 class Object;
 
-class JBIG2Decode : public Filter
+class JBIG2Decode : public InputFilter
 {
 public:
 	JBIG2Decode( const Object &i_globals );

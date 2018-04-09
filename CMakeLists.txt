@@ -11,8 +11,6 @@ OUTPUT_VARIABLE GIT_REVISION OUTPUT_STRIP_TRAILING_WHITESPACE )
 
 set( PRODUCT_VERSION "0.0.1.1" )
 
-add_subdirectory( ../sutils sutils )
-
 add_library( pdfp STATIC
 	src/pdfp/PDFData.h
 	src/pdfp/PDFDocument.cpp
@@ -67,6 +65,8 @@ add_library( pdfp STATIC
 				)
 
 target_include_directories( pdfp PUBLIC src )
+
+add_subdirectory( ../sutils sutils )
 target_link_libraries( pdfp sutils )
 
 source_group( "src/pdfp" FILES

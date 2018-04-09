@@ -13,7 +13,7 @@
 
 namespace pdfp {
 
-class TIFFPredictor : public Filter
+class TIFFPredictor : public InputFilter
 {
 public:
 	TIFFPredictor( size_t i_width, int i_bitsPerComp, int i_nbOfComp );
@@ -23,7 +23,7 @@ public:
 	virtual std::streamoff read( su::array_view<uint8_t> o_buffer );
 
 private:
-	const size_t _width;
+	[[maybe_unused]] const size_t _width;
 	ssize_t _rowBytes;
 	const int _bytesPerComp;
 	const int _nbOfComp;

@@ -97,14 +97,15 @@ std::streamoff StandardSecurityCrypter::read(
 	return p == 0 ? EOF : p;
 }
 
-void StandardSecurityCrypter::decryptString(
-    const std::string &i_input, std::string &o_output )
+std::string StandardSecurityCrypter::decryptString( const std::string &i_input )
 {
-	o_output.resize( i_input.length() );
+	std::string output;
+	output.resize( i_input.length() );
 	RC4( &_rc4Key,
 		 i_input.length(),
 		 (uint8_t *)i_input.data(),
-		 (uint8_t *)o_output.data() );
+		 (uint8_t *)output.data() );
+	return output;
 }
 
 StandardAESSecurityCrypter::StandardAESSecurityCrypter(
@@ -192,24 +193,24 @@ std::streamoff StandardAESSecurityCrypter::read(
 	return p;
 }
 
-void StandardAESSecurityCrypter::decryptString(
-    const std::string &i_input, std::string &o_output )
+std::string StandardAESSecurityCrypter::decryptString(
+    const std::string &i_input )
 {
-	o_output.clear();
 	if ( i_input.length() < ( 2 * AES_BLOCK_SIZE ) )
 	{
 		log_error() << "AES encryption block too short";
-		return;
+		return {};
 	}
-	o_output.reserve( i_input.length() - AES_BLOCK_SIZE );
+	std::string output;
+	output.reserve( i_input.length() - AES_BLOCK_SIZE );
 
-	uint8_t *cbc = (uint8_t *)i_input.data();
-	uint8_t *end = cbc + i_input.size();
+	auto cbc = (uint8_t *)i_input.data();
+	auto end = cbc + i_input.size();
 	for ( ;; )
 	{
 		// decrypt the next block
 		uint8_t decodedBlock[AES_BLOCK_SIZE];
-		uint8_t *nextBlock = cbc + AES_BLOCK_SIZE;
+		auto nextBlock = cbc + AES_BLOCK_SIZE;
 		AES_decrypt( nextBlock, decodedBlock, &_aesKey );
 		for ( int c = 0; c < AES_BLOCK_SIZE; ++c )
 			decodedBlock[c] = decodedBlock[c] ^ cbc[c];
@@ -220,14 +221,15 @@ void StandardAESSecurityCrypter::decryptString(
 		if ( ( cbc + AES_BLOCK_SIZE ) >= end )
 		{
 			// last block, handle the padding
-			o_output.append(
+			output.append(
 				(const char *)decodedBlock,
 				AES_BLOCK_SIZE - decodedBlock[AES_BLOCK_SIZE - 1] );
 			break;
 		}
 		else
-			o_output.append( (const char *)decodedBlock, AES_BLOCK_SIZE );
+			output.append( (const char *)decodedBlock, AES_BLOCK_SIZE );
 	}
+	return output;
 }
 
 // MARK: -
@@ -289,20 +291,20 @@ StandardSecurityHandler::StandardSecurityHandler(
 		{
 			for ( auto &it : CFObj.dictionary_items_resolved() )
 			{
-				CFData data;
 				auto &cryptDict = it.second;
 				if ( not cryptDict.is_dictionary() )
 					continue;
 
+				CFData data;
 				auto &CFM = cryptDict["CFM"];
 				if ( not CFM.is_name() )
-					data.CFM.assign( "None" );
+					data.CFM = "None";
 				else
 					data.CFM = CFM.name_value();
 
 				auto &AuthEvent = cryptDict["AuthEvent"];
 				if ( not AuthEvent.is_name() )
-					data.AuthEvent.assign( "DocOpen" );
+					data.AuthEvent = "DocOpen";
 				else
 					data.AuthEvent = AuthEvent.name_value();
 
@@ -316,13 +318,13 @@ StandardSecurityHandler::StandardSecurityHandler(
 			}
 			auto &StmFObj = i_encryptDict["StmF"];
 			if ( not StmFObj.is_name() )
-				StmF.assign( "Identity" );
+				StmF = "Identity";
 			else
 				StmF = StmFObj.name_value();
 
 			auto &StrFObj = i_encryptDict["StrF"];
 			if ( not StrFObj.is_name() )
-				StrF.assign( "Identity" );
+				StrF = "Identity";
 			else
 				StrF = StrFObj.name_value();
 
@@ -361,8 +363,8 @@ StandardSecurityHandler::createDefaultStreamCrypter(
 		return nullptr;
 }
 
-void StandardSecurityHandler::decryptString(
-    const std::string &i_input, std::string &o_output, int i_id, int i_gen )
+std::string StandardSecurityHandler::decryptString(
+    const std::string &i_input, int i_id, int i_gen )
 {
 	bool useAES = false;
 	if ( V == 4 and R == 4 )
@@ -375,13 +377,13 @@ void StandardSecurityHandler::decryptString(
 	{
 		StandardAESSecurityCrypter crypter(
 		    _encryptionKey, length, i_id, i_gen );
-		crypter.decryptString( i_input, o_output );
+		return crypter.decryptString( i_input );
 	}
 	else
 	{
 		StandardSecurityCrypter crypter(
 		    _encryptionKey, length, i_id, i_gen );
-		crypter.decryptString( i_input, o_output );
+		return crypter.decryptString( i_input );
 	}
 }
 

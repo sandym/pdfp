@@ -16,7 +16,7 @@
 
 namespace pdfp {
 
-class LZWDecode : public BufferedFilter
+class LZWDecode : public BufferedInputFilter
 {
 public:
 	LZWDecode( int i_EarlyChange );

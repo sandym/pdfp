@@ -28,7 +28,7 @@ public:
 	virtual void rewind();
 	virtual std::streamoff read( su::array_view<uint8_t> o_buffer );
 
-	void decryptString( const std::string &i_input, std::string &o_output );
+	std::string decryptString( const std::string &i_input );
 
 private:
 	std::array<uint8_t, 16> _key;
@@ -50,7 +50,7 @@ public:
 	virtual void rewind();
 	virtual std::streamoff read( su::array_view<uint8_t> o_buffer );
 
-	void decryptString( const std::string &i_input, std::string &o_output );
+	std::string decryptString( const std::string &i_input );
 
 private:
 	std::array<uint8_t, 16> _key;
@@ -74,8 +74,7 @@ public:
 
 	virtual std::unique_ptr<Crypter> createDefaultStreamCrypter(
 	    bool i_isMetadata, int i_id, int i_gen ) const;
-	virtual void decryptString( const std::string &i_input,
-	                            std::string &o_output,
+	virtual std::string decryptString( const std::string &i_input,
 	                            int i_id,
 	                            int i_gen );
 
@@ -97,7 +96,6 @@ private:
 	std::unordered_map<std::string, CFData> CF;
 	std::string StmF, StrF, EFF;
 
-	//	RC4_KEY _rc4Key;
 	std::array<uint8_t, 16> _encryptionKey;
 	bool _unlocked = false;
 

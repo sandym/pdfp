@@ -10,6 +10,7 @@
 #include "PNGPredictor.h"
 #include <cassert>
 #include <cstdlib>
+#include <iostream>
 
 namespace {
 

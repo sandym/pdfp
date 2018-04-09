@@ -14,7 +14,7 @@
 
 namespace pdfp {
 
-class ASCII85Decode : public BufferedFilter
+class ASCII85Decode : public BufferedInputFilter
 {
 public:
 	ASCII85Decode() = default;

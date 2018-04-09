@@ -18,7 +18,7 @@ namespace pdfp {
 const int kMaxWBits = 15;
 const int kFlateWindowSize = ( 1 << ( kMaxWBits ) );
 
-class FlateDecode : public Filter
+class FlateDecode : public InputFilter
 {
 public:
 	FlateDecode() = default;

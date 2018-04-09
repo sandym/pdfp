@@ -15,35 +15,35 @@
 
 namespace pdfp {
 
-class ReadSource
+class InputSource
 {
 protected:
-	ReadSource() = default;
+	InputSource() = default;
 
 public:
-	virtual ~ReadSource() = default;
-	ReadSource( const ReadSource & ) = delete;
-	ReadSource &operator=( const ReadSource & ) = delete;
+	virtual ~InputSource() = default;
+	InputSource( const InputSource & ) = delete;
+	InputSource &operator=( const InputSource & ) = delete;
 
 	virtual void rewind() = 0;
 	virtual std::streamoff read( su::array_view<uint8_t> o_buffer ) = 0;
 };
 
-class Filter : public ReadSource
+class InputFilter : public InputSource
 {
 public:
-	virtual ~Filter() = default;
+	virtual ~InputFilter() = default;
 
 	virtual void rewind() = 0;
 	virtual std::streamoff read( su::array_view<uint8_t> o_buffer ) = 0;
 
-	void setNext( std::unique_ptr<ReadSource> i_next );
+	void setNext( std::unique_ptr<InputSource> i_next );
 
 private:
-	std::unique_ptr<ReadSource> _next;
+	std::unique_ptr<InputSource> _next;
 
 protected:
-	Filter() = default;
+	InputFilter() = default;
 
 	void rewindNext() { _next->rewind(); }
 	std::streamoff readNext( su::array_view<uint8_t> o_buffer )
@@ -53,10 +53,10 @@ protected:
 	int getByteNext();
 };
 
-class BufferedFilter : public Filter
+class BufferedInputFilter : public InputFilter
 {
 public:
-	virtual ~BufferedFilter() = default;
+	virtual ~BufferedInputFilter() = default;
 
 private:
 	uint8_t _buffer[4096];

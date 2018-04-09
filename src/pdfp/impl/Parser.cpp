@@ -193,7 +193,7 @@ Object Parser::readXRef( std::string &o_headerVersion )
 
 	Object::dictionary trailerDict;
 
-	su::flat_set<std::streamoff> visitedXref;
+	std::unordered_set<std::streamoff> visitedXref;
 	while ( not xrefposStack.empty() )
 	{
 		auto xrefpos = xrefposStack.top();
@@ -242,7 +242,7 @@ bool Parser::verifyXRef()
 	{
 		if ( not one_xref.compressed() and one_xref.pos() != -1 )
 		{
-			if ( idCounter == 0 and one_xref.pos() == 0 and one_xref.generation() == 0 )
+			if ( one_xref.pos() == 0 and one_xref.generation() == 0 )
 			{
 				// should have been an 'f' command
 				//one_xref = XRef( 0, -1 );
@@ -409,8 +409,6 @@ void Parser::readCrossReferenceStream( Object::dictionary &o_trailerDict,
 
 	// read the object, should be a stream
 	auto streamObj = readObject_priv( objID, objGen );
-	if ( streamObj.is_null() )
-		throw std::runtime_error( "invalid cross reference stream" );
 	if ( not streamObj.is_stream() )
 		throw std::runtime_error( "invalid cross reference stream" );
 
@@ -463,23 +461,11 @@ void Parser::readCrossReferenceStream( Object::dictionary &o_trailerDict,
 			size_t j = 0;
 			for ( auto it = w.begin(); it != w.end(); ++it, ++j )
 			{
-				assert( *it >= 0 and *it <= 4 );
 				fields[j] = 0;
-				switch ( *it )
+				for ( int k = 0; k < *it; ++k )
 				{
-					case 4:
-						fields[j] = *ptr++;
-					case 3:
-						fields[j] = fields[j] << 8;
-						fields[j] += *ptr++;
-					case 2:
-						fields[j] = fields[j] << 8;
-						fields[j] += *ptr++;
-					case 1:
-						fields[j] = fields[j] << 8;
-						fields[j] += *ptr++;
-					default:
-						break;
+					fields[j] = fields[j] << 8;
+					fields[j] += *ptr++;
 				}
 			}
 

@@ -17,7 +17,7 @@ public:
 
 	virtual std::unique_ptr<pdfp::Crypter> createDefaultStreamCrypter(
 	    bool, int, int ) const;
-	virtual void decryptString( const std::string &, std::string &, int, int );
+	virtual std::string decryptString( const std::string &, int, int );
 
 	virtual bool unlock( pdfp::Document *i_doc,
 	                     const std::string &i_password );
@@ -30,11 +30,11 @@ UnsupportedSecurityHandler::createDefaultStreamCrypter( bool, int, int ) const
 	return {};
 }
 
-void UnsupportedSecurityHandler::decryptString( const std::string &,
-                                                std::string &,
+std::string UnsupportedSecurityHandler::decryptString( const std::string &i_input,
                                                 int,
                                                 int )
 {
+	return i_input;
 }
 
 bool UnsupportedSecurityHandler::unlock( pdfp::Document *,

@@ -14,7 +14,7 @@ private:
 	std::unordered_set<uintptr_t> _visitedArray;
 	std::unordered_set<uintptr_t> _visitedStream;
 
-	void dumpString( const std::string &v )
+	void dumpString( const std::string_view &v )
 	{
 		for ( auto &it : v )
 		{
@@ -78,11 +78,11 @@ private:
 		}
 		std::sort( ks.begin(), ks.end() );
 
-		ostr << "start dict:\n";
+		ostr << "<<\n";
 		for ( auto &it : ks )
 		{
 			if ( useExtraLength and it == "Length" )
-				ostr << it << "\nint: " << extraLength << "\n";
+				ostr << it << "\ni: " << extraLength << "\n";
 			else
 			{
 				auto v = dictValue( i_dict, it );
@@ -95,7 +95,7 @@ private:
 				}
 			}
 		}
-		ostr << "end dict\n";
+		ostr << ">>\n";
 	}
 	template<typename U>
 	void dumpArray( U i_array )
@@ -107,13 +107,13 @@ private:
 		}
 		_visitedArray.insert( hashKey(i_array) );
 
-		ostr << "start array:\n";
+		ostr << "[\n";
 		for ( size_t i = 0; i < arrayCount( i_array ); ++i )
 		{
 			auto v = arrayValue( i_array, i );
 			dumpObject( v );
 		}
-		ostr << "end array\n";
+		ostr << "]\n";
 	}
 
 	std::tuple<std::string, size_t> md5Checksum( const pdfp::Data &i_data )
@@ -126,7 +126,7 @@ private:
 		pdfp::MD5_Final( md, &c );
 
 		auto res = std::to_string( i_data.length );
-		res += ": ";
+		res += ", ";
 
 		for ( int i = 0; i < pdfp::MD5_DIGEST_LENGTH; ++i )
 		{
@@ -163,7 +163,7 @@ private:
 		}
 		_visitedStream.insert( hashKey(i_stream) );
 
-		ostr << "start stream:\n";
+		ostr << "stream\n";
 		auto dict = streamDictionary( i_stream );
 		std::string filter;
 		auto data = streamData( i_stream );
@@ -173,7 +173,7 @@ private:
 		ostr << "filter: " << filter;
 		ostr << " format: " << formatToString( data.format );
 		ostr << " data: " << std::get<0>( sd ) << "\n";
-		ostr << "end stream\n";
+		ostr << "endstream\n";
 	}
 	template<typename U>
 	void dumpObject( U i_object )
@@ -199,26 +199,26 @@ private:
 				if ( numberIsInt( i_object ) )
 				{
 					int v = intValue( i_object );
-					ostr << "int: " << v << "\n";
+					ostr << "i: " << v << "\n";
 				}
 				else
 				{
 					float v = floatValue( i_object );
 					int i = (v * 100);
-					ostr << "real: " << i << "\n";
+					ostr << "r: " << i << "\n";
 				}
 				break;
 			}
 			case pdfp::Object::Type::k_name:
 			{
 				auto v = nameValue( i_object );
-				ostr << "name: " << v << "\n";
+				ostr << "/" << v << "\n";
 				break;
 			}
 			case pdfp::Object::Type::k_string:
 			{
 				auto v = stringValue( i_object );
-				ostr << "string: <";
+				ostr << "<";
 				dumpString( v );
 				ostr << ">\n";
 				break;
@@ -264,10 +264,10 @@ public:
 			auto nb = nbOfPages( doc );
 			ostr << "nb of pages: " << nb << "\n";
 
-			ostr << "dump info\n";
+			ostr << "info:\n";
 			dumpDict( info( doc ) );
 
-			ostr << "dump catalog\n";
+			ostr << "catalog:\n";
 			dumpDict( catalog( doc ) );
 			ostr << "end\n";
 		}
