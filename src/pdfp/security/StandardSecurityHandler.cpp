@@ -22,7 +22,9 @@ const uint8_t kPaddingString[] = {
     0x3E, 0x80, 0x2F, 0x0C, 0xA9, 0xFE, 0x64, 0x53, 0x69, 0x7A};
 
 // algorithm 1 from the PDF specs
-std::tuple<std::array<uint8_t, 16>,int> Algorithm1( bool i_useAES, const std::array<uint8_t, 16> &i_encryptionKey,
+std::tuple<std::array<uint8_t, 16>, int> Algorithm1(
+    bool i_useAES,
+    const std::array<uint8_t, 16> &i_encryptionKey,
     int i_length,
     int i_id,
     int i_gen )
@@ -45,16 +47,15 @@ std::tuple<std::array<uint8_t, 16>,int> Algorithm1( bool i_useAES, const std::ar
 		extendKey[l + 8] = 0x54; // T
 		extendKeyLength += 4;
 	}
-	
+
 	pdfp::MD5_CTX c;
 	pdfp::MD5_Init( &c );
 	pdfp::MD5_Update( &c, extendKey, extendKeyLength );
 	std::array<uint8_t, 16> key;
 	pdfp::MD5_Final( key.data(), &c );
 
-	return { key, std::min( 16, l + 5 ) };
+	return {key, std::min( 16, l + 5 )};
 }
-
 }
 
 namespace pdfp {
@@ -65,7 +66,8 @@ StandardSecurityCrypter::StandardSecurityCrypter(
     int i_id,
     int i_gen )
 {
-	std::tie(_key,_keyLength) = Algorithm1( false, i_encryptionKey, i_length, i_id, i_gen );
+	std::tie( _key, _keyLength ) =
+	    Algorithm1( false, i_encryptionKey, i_length, i_id, i_gen );
 	reset();
 }
 
@@ -80,8 +82,7 @@ void StandardSecurityCrypter::rewind()
 	reset();
 }
 
-std::streamoff StandardSecurityCrypter::read(
-    su::array_view<uint8_t> o_buffer )
+std::streamoff StandardSecurityCrypter::read( su::array_view<uint8_t> o_buffer )
 {
 	ssize_t p = 0;
 	while ( p < o_buffer.size() )
@@ -102,9 +103,9 @@ std::string StandardSecurityCrypter::decryptString( const std::string &i_input )
 	std::string output;
 	output.resize( i_input.length() );
 	RC4( &_rc4Key,
-		 i_input.length(),
-		 (uint8_t *)i_input.data(),
-		 (uint8_t *)output.data() );
+	     i_input.length(),
+	     (uint8_t *)i_input.data(),
+	     (uint8_t *)output.data() );
 	return output;
 }
 
@@ -115,14 +116,15 @@ StandardAESSecurityCrypter::StandardAESSecurityCrypter(
     int i_gen ) :
     _aesPos( AES_BLOCK_SIZE )
 {
-	std::tie(_key,_keyLength) = Algorithm1( true, i_encryptionKey, i_length, i_id, i_gen );
+	std::tie( _key, _keyLength ) =
+	    Algorithm1( true, i_encryptionKey, i_length, i_id, i_gen );
 	reset();
 }
 
 void StandardAESSecurityCrypter::reset()
 {
 	AES_set_decrypt_key(
-		(const unsigned char *)_key.data(), _keyLength * 8, &_aesKey );
+	    (const unsigned char *)_key.data(), _keyLength * 8, &_aesKey );
 	_aesPos = AES_BLOCK_SIZE;
 }
 
@@ -158,7 +160,7 @@ std::streamoff StandardAESSecurityCrypter::read(
 		if ( _aesPos < AES_BLOCK_SIZE )
 		{
 			auto l = std::min( size_t( AES_BLOCK_SIZE - _aesPos ),
-							   o_buffer.size() - p );
+			                   o_buffer.size() - p );
 			memcpy( o_buffer.data() + p, _decodedBlock + _aesPos, l );
 			_aesPos += l;
 			p += l;
@@ -180,8 +182,8 @@ std::streamoff StandardAESSecurityCrypter::read(
 				// last block, clear the padding
 				_aesPos = _decodedBlock[AES_BLOCK_SIZE - 1];
 				memmove( _decodedBlock + _aesPos,
-						 _decodedBlock,
-						 AES_BLOCK_SIZE - _aesPos );
+				         _decodedBlock,
+				         AES_BLOCK_SIZE - _aesPos );
 				_nextBlock = nullptr;
 			}
 			else
@@ -221,9 +223,8 @@ std::string StandardAESSecurityCrypter::decryptString(
 		if ( ( cbc + AES_BLOCK_SIZE ) >= end )
 		{
 			// last block, handle the padding
-			output.append(
-				(const char *)decodedBlock,
-				AES_BLOCK_SIZE - decodedBlock[AES_BLOCK_SIZE - 1] );
+			output.append( (const char *)decodedBlock,
+			               AES_BLOCK_SIZE - decodedBlock[AES_BLOCK_SIZE - 1] );
 			break;
 		}
 		else
@@ -234,8 +235,7 @@ std::string StandardAESSecurityCrypter::decryptString(
 
 // MARK: -
 
-StandardSecurityHandler::StandardSecurityHandler(
-    const Object &i_encryptDict )
+StandardSecurityHandler::StandardSecurityHandler( const Object &i_encryptDict )
 {
 	const auto &VObj = i_encryptDict["V"];
 	if ( not VObj.is_number() )
@@ -335,8 +335,7 @@ StandardSecurityHandler::StandardSecurityHandler(
 	}
 }
 
-std::unique_ptr<Crypter>
-StandardSecurityHandler::createDefaultStreamCrypter(
+std::unique_ptr<Crypter> StandardSecurityHandler::createDefaultStreamCrypter(
     bool i_isMetadata, int i_id, int i_gen ) const
 {
 	if ( _unlocked and ( not i_isMetadata or EncryptMetadata ) )
@@ -351,20 +350,21 @@ StandardSecurityHandler::createDefaultStreamCrypter(
 		if ( useAES )
 		{
 			return std::make_unique<StandardAESSecurityCrypter>(
-		    	_encryptionKey, length, i_id, i_gen );
+			    _encryptionKey, length, i_id, i_gen );
 		}
 		else
 		{
 			return std::make_unique<StandardSecurityCrypter>(
-		    	_encryptionKey, length, i_id, i_gen );
+			    _encryptionKey, length, i_id, i_gen );
 		}
 	}
 	else
 		return nullptr;
 }
 
-std::string StandardSecurityHandler::decryptString(
-    const std::string &i_input, int i_id, int i_gen )
+std::string StandardSecurityHandler::decryptString( const std::string &i_input,
+                                                    int i_id,
+                                                    int i_gen )
 {
 	bool useAES = false;
 	if ( V == 4 and R == 4 )
@@ -381,14 +381,13 @@ std::string StandardSecurityHandler::decryptString(
 	}
 	else
 	{
-		StandardSecurityCrypter crypter(
-		    _encryptionKey, length, i_id, i_gen );
+		StandardSecurityCrypter crypter( _encryptionKey, length, i_id, i_gen );
 		return crypter.decryptString( i_input );
 	}
 }
 
 bool StandardSecurityHandler::unlock( Document *i_doc,
-                                                const std::string &i_password )
+                                      const std::string &i_password )
 {
 	if ( not _unlocked )
 	{
@@ -420,8 +419,9 @@ bool StandardSecurityHandler::unlock( Document *i_doc,
 			MD5_Update( &c, kPaddingString, 32 );
 
 			// c)
-			MD5_Update(
-			    &c, (const uint8_t *)ids.first.data(), (uint32_t)ids.first.length() );
+			MD5_Update( &c,
+			            (const uint8_t *)ids.first.data(),
+			            (uint32_t)ids.first.length() );
 
 			uint8_t md[16];
 			MD5_Final( md, &c );
@@ -517,4 +517,3 @@ void StandardSecurityHandler::ComputeEncryptionKey(
 }
 
 }
-

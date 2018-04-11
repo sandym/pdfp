@@ -19,7 +19,7 @@
 
 namespace {
 bool ArrayToVectorOfInt( const pdfp::Object &i_array,
-                            std::vector<int> &o_vector )
+                         std::vector<int> &o_vector )
 {
 	if ( not i_array.is_array() )
 		return false;
@@ -37,9 +37,9 @@ struct SubSection
 	int objNb, nbOfEntry;
 };
 bool ArrayToVectorOfRange( const pdfp::Object &i_array,
-                              std::vector<SubSection> &o_vector )
+                           std::vector<SubSection> &o_vector )
 {
-	if ( not i_array.is_array() or (i_array.array_size()&1) )
+	if ( not i_array.is_array() or ( i_array.array_size() & 1 ) )
 		return false;
 	auto arr = i_array.array_items_resolved();
 	for ( auto it = arr.begin(); it != arr.end(); ++it )
@@ -48,8 +48,8 @@ bool ArrayToVectorOfRange( const pdfp::Object &i_array,
 		++it;
 		auto &obj2 = *it;
 		if ( obj1.is_number() and obj2.is_number() )
-			o_vector.push_back( SubSection{obj1.int_value(),
-			                               obj2.int_value()} );
+			o_vector.push_back(
+			    SubSection{obj1.int_value(), obj2.int_value()} );
 		else
 			return false;
 	}
@@ -121,9 +121,9 @@ bool isObjDef( const std::string &i_line, int &num, int &gen )
 		return false;
 	++ptr;
 
-	return ptr == i_line.end() or pdfp::isWhiteSpace( *ptr ) or pdfp::isDelimiter( *ptr );
+	return ptr == i_line.end() or pdfp::isWhiteSpace( *ptr ) or
+	       pdfp::isDelimiter( *ptr );
 }
-
 }
 
 namespace pdfp {
@@ -229,10 +229,10 @@ Object Parser::readXRef( std::string &o_headerVersion )
 		}
 	}
 
-	if ( not verifyXRef() )
-		throw std::runtime_error( "invalid PDF file" );
+//	if ( not verifyXRef() )
+//		throw std::runtime_error( "invalid PDF file" );
 
-	return Object::create_dictionary( _doc, std::move(trailerDict) );
+	return Object::create_dictionary( _doc, std::move( trailerDict ) );
 }
 
 bool Parser::verifyXRef()
@@ -245,7 +245,7 @@ bool Parser::verifyXRef()
 			if ( one_xref.pos() == 0 and one_xref.generation() == 0 )
 			{
 				// should have been an 'f' command
-				//one_xref = XRef( 0, -1 );
+				// one_xref = XRef( 0, -1 );
 			}
 			else
 			{
@@ -267,8 +267,10 @@ void transfer( const Object::dictionary &src, Object::dictionary &dst )
 		dst[it.first] = it.second;
 }
 
-void transferIfNotAlreadyThere( const Object::dictionary &src, Object::dictionary &dst,
-							const std::unordered_set<std::string> &i_filter )
+void transferIfNotAlreadyThere(
+    const Object::dictionary &src,
+    Object::dictionary &dst,
+    const std::unordered_set<std::string> &i_filter )
 {
 	for ( auto &it : src )
 	{
@@ -279,7 +281,6 @@ void transferIfNotAlreadyThere( const Object::dictionary &src, Object::dictionar
 		}
 	}
 }
-
 
 Object Parser::buildXRef( std::string &o_headerVersion )
 {
@@ -293,7 +294,7 @@ Object Parser::buildXRef( std::string &o_headerVersion )
 	std::string line;
 	line.reserve( 1024 );
 	std::streamoff pos = 0;
-	
+
 	while ( _tokenizer.getLine( line ) )
 	{
 		if ( line.compare( 0, 7, "trailer" ) == 0 )
@@ -335,11 +336,11 @@ Object Parser::buildXRef( std::string &o_headerVersion )
 		}
 	}
 
-	return Object::create_dictionary( _doc, std::move(trailerDict) );
+	return Object::create_dictionary( _doc, std::move( trailerDict ) );
 }
 
 void Parser::readCrossReferenceTable( Object::dictionary &o_trailerDict,
-                                          std::streamoff &o_xrefpos )
+                                      std::streamoff &o_xrefpos )
 {
 	// cross reference table should start with 2 integers: first object ID and
 	// nb of objects
@@ -391,13 +392,13 @@ void Parser::readCrossReferenceTable( Object::dictionary &o_trailerDict,
 		auto &v = trailer["Prev"];
 		if ( v.is_number() )
 			o_xrefpos = v.int_value();
-		transferIfNotAlreadyThere( trailer.dictionary_items(), o_trailerDict,
-												  {} );
+		transferIfNotAlreadyThere(
+		    trailer.dictionary_items(), o_trailerDict, {} );
 	}
 }
 
 void Parser::readCrossReferenceStream( Object::dictionary &o_trailerDict,
-                                           std::streamoff &o_xrefpos )
+                                       std::streamoff &o_xrefpos )
 {
 	// read object declaration: int int obj
 	Token token;
@@ -484,8 +485,10 @@ void Parser::readCrossReferenceStream( Object::dictionary &o_trailerDict,
 				{
 					_doc->xrefTable().expand( i + 1 );
 					if ( _doc->xrefTable()[i].generation() == -1 )
+					{
 						_doc->xrefTable()[i] =
 						    XRef( fields[1], fields[2], true );
+					}
 					break;
 				}
 				default:
@@ -496,11 +499,10 @@ void Parser::readCrossReferenceStream( Object::dictionary &o_trailerDict,
 	}
 
 	// skip the stream specific entry
-	transferIfNotAlreadyThere( dict.dictionary_items(), o_trailerDict,
-		{
-			"Length", "Filter", "DP", "DecodeParms",
-			"Type", "W", "Index"
-		} );
+	transferIfNotAlreadyThere(
+	    dict.dictionary_items(),
+	    o_trailerDict,
+	    {"Length", "Filter", "DP", "DecodeParms", "Type", "W", "Index"} );
 }
 
 Object Parser::readObject( int i_id )
@@ -554,7 +556,8 @@ Parser::ObjectStreamData Parser::readCompressedObjectStream(
 	if ( not compressedObjectStream.is_stream() )
 		return {};
 
-	auto &compressedObjectStreamDict = compressedObjectStream.stream_dictionary();
+	auto &compressedObjectStreamDict =
+	    compressedObjectStream.stream_dictionary();
 	assert( not compressedObjectStreamDict.is_null() );
 
 	auto &N = compressedObjectStreamDict["N"];
@@ -700,7 +703,7 @@ Object Parser::readObject_priv( int i_id, int i_gen )
 				array.push_back( readObject_priv( i_id, i_gen ) );
 				_tokenizer.nextTokenForced( token );
 			}
-			return Object::create_array( _doc, std::move(array) );
+			return Object::create_array( _doc, std::move( array ) );
 		}
 		case Token::tok_opendict:
 		{
@@ -721,7 +724,8 @@ Object Parser::readObject_priv( int i_id, int i_gen )
 				try
 				{
 					auto it = dict.find( "Length" );
-					len = resolveLength( it != dict.end() ? it->second : Object{} );
+					len = resolveLength( it != dict.end() ? it->second :
+					                                        Object{} );
 					_tokenizer.seekg( p + len, std::ios_base::beg );
 					_tokenizer.nextTokenForced( token, Token::tok_endstream );
 				}
@@ -739,10 +743,14 @@ Object Parser::readObject_priv( int i_id, int i_gen )
 					dict["Length"] = Object::create_number( (int)len );
 				}
 				return Object::create_stream(
-				    Object::create_dictionary( _doc, std::move(dict) ), p, len, i_id, i_gen );
+				    Object::create_dictionary( _doc, std::move( dict ) ),
+				    p,
+				    len,
+				    i_id,
+				    i_gen );
 			}
 			else
-				return Object::create_dictionary( _doc, std::move(dict) );
+				return Object::create_dictionary( _doc, std::move( dict ) );
 		}
 		case Token::tok_null:
 			return {};
@@ -835,7 +843,10 @@ size_t Parser::resolveLength( const Object &i_obj )
 
 			if ( size_t( ref.ref ) >= _doc->xrefTable().size() or
 			     _doc->xrefTable()[ref.ref].generation() != ref.gen )
-				throw std::runtime_error( "invalid object ref for length in stream dictionary" );
+			{
+				throw std::runtime_error(
+				    "invalid object ref for length in stream dictionary" );
+			}
 
 			size_t p = _tokenizer.tellg();
 			_tokenizer.seekg( _doc->xrefTable()[ref.ref].pos(),
@@ -844,10 +855,16 @@ size_t Parser::resolveLength( const Object &i_obj )
 			Token token;
 			_tokenizer.nextTokenForced( token, Token::tok_int );
 			if ( token.intValue() != ref.ref )
-				throw std::runtime_error( "invalid object ref for length in stream dictionary" );
+			{
+				throw std::runtime_error(
+				    "invalid object ref for length in stream dictionary" );
+			}
 			_tokenizer.nextTokenForced( token, Token::tok_int );
 			if ( token.intValue() != ref.gen )
-				throw std::runtime_error( "invalid object ref for length in stream dictionary" );
+			{
+				throw std::runtime_error(
+				    "invalid object ref for length in stream dictionary" );
+			}
 
 			_tokenizer.nextTokenForced( token, Token::tok_obj );
 			obj = readObject_priv( 0, 0 );
@@ -858,7 +875,10 @@ size_t Parser::resolveLength( const Object &i_obj )
 		if ( obj.is_number() )
 			return obj.int_value();
 		else
-			throw std::runtime_error( "invalid object ref for length in stream dictionary" );
+		{
+			throw std::runtime_error(
+			    "invalid object ref for length in stream dictionary" );
+		}
 	}
 	catch ( std::exception &ex )
 	{
@@ -867,8 +887,7 @@ size_t Parser::resolveLength( const Object &i_obj )
 	return 0;
 }
 
-std::streamoff Parser::read( size_t i_pos,
-                                 su::array_view<uint8_t> o_buffer )
+std::streamoff Parser::read( size_t i_pos, su::array_view<uint8_t> o_buffer )
 {
 	_tokenizer.seekg( i_pos, std::ios_base::beg );
 	return _tokenizer.read( (char *)o_buffer.data(), o_buffer.size() );

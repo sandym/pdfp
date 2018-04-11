@@ -60,20 +60,6 @@ public:
 	virtual std::streamoff read( su::array_view<uint8_t> o_buffer ) = 0;
 };
 
-/*!
-The identity decrypter, noop.
-*/
-class IdentityCrypter : public Crypter
-{
-protected:
-	IdentityCrypter();
-
-public:
-	virtual ~IdentityCrypter();
-
-	virtual void reset();
-	virtual void decrypt( su::array_view<uint8_t> o_buffer );
-};
 }
 
 #endif

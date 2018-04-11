@@ -46,8 +46,11 @@ int getNbOfColourComponents( const Object &i_colourSpace )
 					auto &obj = a[1];
 					if ( obj.is_stream() )
 					{
-						auto &d = obj.stream_dictionary();
-						return getNbOfColourComponents( d["Alternate"] );
+						auto &N = obj["N"]; // N is required
+						if ( N.is_number() )
+							return N.int_value();
+						// try Alternate...
+						return getNbOfColourComponents( obj["Alternate"] );
 					}
 				}
 				else if ( cs == "Separation" and a.size() > 2 )
