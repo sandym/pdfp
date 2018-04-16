@@ -13,6 +13,16 @@ target_include_directories( pdfp_tests PRIVATE dumpers )
 add_subdirectory( .. pdfp )
 target_link_libraries( pdfp_tests pdfp )
 
+if( DEFINED OPENPDF_PREFIX )
+	if( IS_DIRECTORY "${OPENPDF_PREFIX}/pdfp_dumper" )
+		execute_process( COMMAND
+			${CMAKE_COMMAND} -E create_symlink
+				"${OPENPDF_PREFIX}/pdfp_dumper"
+				"${CMAKE_CURRENT_LIST_DIR}/dumpers/openpdf"
+		)
+	endif()
+endif()
+
 file( GLOB dumpers dumpers/* )
 foreach( dumper ${dumpers} )
 	if( IS_DIRECTORY ${dumper} )

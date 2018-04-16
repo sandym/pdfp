@@ -16,6 +16,7 @@
 #include "Utils.h"
 #include <cassert>
 #include <unordered_set>
+#include <array>
 
 namespace {
 bool ArrayToVectorOfInt( const pdfp::Object &i_array,
@@ -291,6 +292,42 @@ Object Parser::buildXRef( std::string &o_headerVersion )
 
 	Object::dictionary trailerDict;
 
+#if 0
+	std::array<char,4096> buffer;
+	std::streamoff bufferStart = 0;
+	std::streamoff pos = buffer.size();
+
+	while ( _tokenizer )
+	{
+		// fill buffer
+		std::streamoff bufSize;
+		
+		if ( bufferStart == 0 )
+		{
+			bufSize = _tokenizer.read( buffer.data(), buffer.size() );
+			// check for '%PDF-'
+			assert( false );
+		}
+		else
+		{
+			assert( false );
+		}
+		pos = 0;
+
+		// look for:
+		//	1- \sobj[white space or delim]
+		//  2- \strailer[white space or delim]
+		while ( pos < bufSize )
+		{
+			if ( isInterresting( buffer[pos] ) )
+			{
+				assert( false );
+			}
+			else
+				pos += 5;
+		}
+	}
+#else
 	std::string line;
 	line.reserve( 1024 );
 	std::streamoff pos = 0;
@@ -301,8 +338,13 @@ Object Parser::buildXRef( std::string &o_headerVersion )
 		{
 			//	read trailer
 			_tokenizer.seekg( pos + 7, std::ios::beg );
-			auto obj = readObject_priv( 0, 0 );
-			transfer( obj.dictionary_items(), trailerDict );
+			try
+			{
+				auto obj = readObject_priv( 0, 0 );
+				transfer( obj.dictionary_items(), trailerDict );
+			}
+			catch ( ... )
+			{}
 		}
 		else
 		{
@@ -322,6 +364,7 @@ Object Parser::buildXRef( std::string &o_headerVersion )
 		}
 		pos = _tokenizer.tellg();
 	}
+#endif
 
 	auto it = trailerDict.find( "XRefStm" );
 	if ( it != trailerDict.end() and not it->second.is_null() )
